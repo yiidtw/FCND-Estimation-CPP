@@ -171,9 +171,8 @@ VectorXf QuadEstimatorEKF::PredictState(VectorXf curState, float dt, V3F accel, 
 
   ////////////////////////////// BEGIN STUDENT CODE ///////////////////////////
 
-  predictedState(0) += predictedState(3) * dt; 
-  predictedState(1) += predictedState(4) * dt;
-  predictedState(2) += predictedState(5) * dt;
+  for(int i = 0; i < 3; i++)
+    predictedState(i) += predictedState(i+3) * dt; 
   
   V3F vaccel = attitude.Rotate_BtoI(accel) - V3F(0, 0, CONST_GRAVITY);
   predictedState(3) += vaccel.x * dt;
@@ -206,22 +205,21 @@ MatrixXf QuadEstimatorEKF::GetRbgPrime(float roll, float pitch, float yaw)
 
   ////////////////////////////// BEGIN STUDENT CODE ///////////////////////////
 
-    float cosTheta = cos(pitch);
-    float sinTheta = sin(pitch);
+    float cos_theta = cos(pitch);
+    float cos_phi = cos(roll);
+    float cos_psi = cos(yaw);
+
+    float sin_theta = sin(pitch);
+    float sin_phi = sin(roll);
+    float sin_psi = sin(yaw);
     
-    float cosPhi = cos(roll);
-    float sinPhi = sin(roll);
+    RbgPrime(0,0) = - cos_theta * sin_psi;
+    RbgPrime(0,1) = - cos_theta * cos_psi - sin_phi * sin_theta * sin_psi;
+    RbgPrime(0,2) =   sin_phi   * cos_psi - cos_phi * sin_theta * sin_psi;
     
-    float sinPsi = sin(yaw);
-    float cosPsi = cos(yaw);
-    
-    RbgPrime(0,0) = - cosTheta * sinPsi;
-    RbgPrime(0,1) = - sinPhi  * sinTheta * sinPsi - cosTheta * cosPsi;
-    RbgPrime(0,2) = - cosPhi  * sinTheta * sinPsi + sinPhi   * cosPsi;
-    
-    RbgPrime(1,0) = cosTheta * cosPsi;
-    RbgPrime(1,1) = sinPhi  * sinTheta * cosPsi - cosPhi * sinPsi;
-    RbgPrime(1,2) = cosPhi  * sinTheta * cosPsi + sinPhi * sinPsi;
+    RbgPrime(1,0) =   cos_theta * cos_psi;
+    RbgPrime(1,1) = - cos_phi   * sin_psi + sin_phi * sin_theta * cos_psi ;
+    RbgPrime(1,2) =   sin_phi   * sin_psi + cos_phi * sin_theta * cos_psi;
 
   /////////////////////////////// END STUDENT CODE ////////////////////////////
 
@@ -272,11 +270,11 @@ void QuadEstimatorEKF::Predict(float dt, V3F accel, V3F gyro)
   gPrime(1,4) = dt;
   gPrime(2,5) = dt;
   
-  gPrime(3, 6) = (RbgPrime(0) * accel).sum() * dt;
-  gPrime(4, 6) = (RbgPrime(1) * accel).sum() * dt;
-  gPrime(5, 6) = (RbgPrime(2) * accel).sum() * dt;
+  gPrime(3, 6) = dt * (RbgPrime(0) * accel).sum();
+  gPrime(4, 6) = dt * (RbgPrime(1) * accel).sum();
+  gPrime(5, 6) = dt * (RbgPrime(2) * accel).sum();
   
-  ekfCov = gPrime * ekfCov * gPrime.transpose() + Q;
+  ekfCov = Q + gPrime * ekfCov * gPrime.transpose();
 
   /////////////////////////////// END STUDENT CODE ////////////////////////////
 
@@ -302,19 +300,11 @@ void QuadEstimatorEKF::UpdateFromGPS(V3F pos, V3F vel)
   //  - this is a very simple update
   ////////////////////////////// BEGIN STUDENT CODE ///////////////////////////
 
-  zFromX(0) = ekfState(0);
-  zFromX(1) = ekfState(1);
-  zFromX(2) = ekfState(2);
-  zFromX(3) = ekfState(3);
-  zFromX(4) = ekfState(4);
-  zFromX(5) = ekfState(5);
-
-  hPrime(0, 0) = 1.f;
-  hPrime(1, 1) = 1.f;
-  hPrime(2, 2) = 1.f;
-  hPrime(3, 3) = 1.f;
-  hPrime(4, 4) = 1.f;
-  hPrime(5, 5) = 1.f;
+  for (int i = 0; i < 6; i++)
+    zFromX(i) = ekfState(i);
+  
+  for (int i = 0; i < 6; i++)
+    hPrime(i, i) = 1.f;
 
   /////////////////////////////// END STUDENT CODE ////////////////////////////
 
